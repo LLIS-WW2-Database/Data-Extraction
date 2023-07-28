@@ -27,8 +27,6 @@ This project, the Word Document Data Extractor for the Diekirch Military Museum,
   - [Acknowledgements](#acknowledgements)
   - [Contact](#contact)
 
-Now, both the "Branch Naming Conventions" and "Commit Message Formats" sections are included in the Table of Contents, and readers can easily navigate to them from the top of the README file.
-
 ## Project Objective
 
 The main objective of this extractor is to automate the process of converting the contents of these historical documents into structured data. By doing so, it facilitates essential tasks such as cataloging, searching, and utilizing the wealth of historical records. This digital archiving effort represents a significant step forward in promoting historical research and contributing to the museum's mission of preserving and sharing Luxembourg's military history.
