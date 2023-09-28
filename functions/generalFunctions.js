@@ -202,13 +202,15 @@ async function start() {
         console.log(chalk.red('Cancelling...'));
         rl.close();
         process.exit();
-        return;
       } else if (input.toLocaleLowerCase() == 'y') {
         console.log(chalk.red('Deleting the outputs folder...'));
         await deleteOutputsFolder();
         await console.clear();
         console.log('Starting conversion...');
-        convertEverything();
+        await convertEverything();
+        console.log('Conversion Completed');
+        rl.close();
+        process.exit();
       } else {
         rl.prompt();
       }

@@ -11,6 +11,7 @@ const path = require('path');
 const { BaseOutputDirectory } = require('./createOutputDir');
 const chalk = require('chalk');
 const { loopOverFiles } = require('./utils');
+const { expectedMainFields, requiredMainFields, subfields } = require("../Constants")
 
 class TxtToJsonConverter extends BaseOutputDirectory {
   constructor(parentFolder) {
@@ -26,17 +27,17 @@ class TxtToJsonConverter extends BaseOutputDirectory {
    * @returns {object} A json object
    */
   parseDataToJSON(data) {
+    // Split the input data into lines
     const lines = data.split(/\r?\n/);
+
+    // Initialize the JSON output object and other variables
     const jsonOutput = {};
     let currentField = '';
-    let isParsingWehrmacht = false;
 
-    // Array of special fields within Wehrmacht
-    const specialWehrmachtFields = ['Desertéiert', 'Verstoppt'];
-
+    // Loop through each line in the input data
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i].trim();
-      if (line === '') continue;
+      if (line === '') continue; // Skip empty lines
 
       if (!jsonOutput['Name']) {
         // Extract the full name from the first line
@@ -51,30 +52,67 @@ class TxtToJsonConverter extends BaseOutputDirectory {
         // If the line includes a colon, treat it as a field and value pair
         const [field, ...values] = line.split(':').map((item) => item.trim());
         const value = values.join(':').trim();
-        if (field === 'Wehrmacht') {
-          // Entering the Wehrmacht field, set the flag
-          isParsingWehrmacht = true;
+
+        if (expectedMainFields.includes(field)) {
+          // Main field is expected, add it to the JSON with the value
           jsonOutput[field] = value;
           currentField = field;
-        } else if (
-          isParsingWehrmacht &&
-          specialWehrmachtFields.includes(field)
-        ) {
-          // Inside the Wehrmacht field, handle special fields as sub-fields
-          const subField = `Wehrmacht-${field}`;
-          jsonOutput[subField] = value;
-        } else if (field) {
-          jsonOutput[field] = value;
-          currentField = field;
-        } else if (currentField) {
-          jsonOutput[currentField] += ' ' + value;
+        } else if (this.isSubfield(field)) {
+          // Check if it's a subfield (without the main field prefix)
+          const mainField = this.findMainFieldForSubfield(field);
+          if (mainField) {
+            const fullSubfield = `${mainField}-${field}`;
+            jsonOutput[fullSubfield] = value;
+          } else {
+            console.log(chalk.yellow(`Unexpected field: ${field}`));
+          }
+        } else {
+          // Field is unexpected, throw an error
+          console.log(chalk.yellow(`Unexpected field: ${field}`));
         }
       }
     }
-    isParsingWehrmacht = false;
 
+    // Ensure all required main fields are present in the JSON
+    for (const field of requiredMainFields) {
+      if (!jsonOutput[field]) {
+        throw new Error(`Required main field missing: ${field}`);
+      }
+    }
+
+    // Ensure all subfields for required main fields are present in the JSON
+    for (const mainField of requiredMainFields) {
+      const subfieldArray = subfields[mainField];
+      if (subfieldArray) {
+        for (const subfield of subfieldArray) {
+          const fullSubfield = `${mainField}-${subfield}`;
+          if (!jsonOutput[fullSubfield]) {
+            throw new Error(`Required subfield missing: ${fullSubfield}`);
+          }
+        }
+      }
+    }
+
+    // Return the parsed JSON output
     return jsonOutput;
   }
+
+  // Function to check if a field is a subfield (e.g., "Desertéiert")
+  isSubfield(field) {
+    // Check if the field is present in the subfields (without main field prefix)
+    return Object.values(subfields).flat().includes(field);
+  }
+
+  // Function to find the main field for a subfield
+  findMainFieldForSubfield(subfield) {
+    for (const mainField of Object.keys(subfields)) {
+      if (subfields[mainField].includes(subfield)) {
+        return mainField;
+      }
+    }
+    return null; // Subfield not found in any main field
+  }
+
 
   /**
    * @description Cleans up text, by removing leading and trailing spaces
