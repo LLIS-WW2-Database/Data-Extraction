@@ -1,9 +1,10 @@
 {
+  "name": "Data-Extraction",
   "license": "MIT",
   "author": {
     "email": "sebastianmostert663@gmail.com",
     "name": "Sebastian Mostert",
-    "url": "https://github.com/SebastianMostert"
+    "url": "https://sebastian-mostert.me"
   },
   "contributors": [],
   "dependencies": {
