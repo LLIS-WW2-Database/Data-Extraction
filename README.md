@@ -87,50 +87,15 @@ npm run start
 
 #### Document Requirements
 
-For successful data extraction, the input Word documents must contain the following information. Please ensure that each document includes the listed fields:
+For successful data extraction, you must go into the Constants.js file and configure your set of:
 
-- Vorname des Vaters
-- Geburtsdatum
-- Wohnort
-- Land
-- Geburtsort
-- Geburtsland
-- Religion
-- Zivile Ausbildung
-- Militärische Ausbildung
-- Fräiwëllegekompanie
-- Beruf
-- Stellungsbefehl RAD
-- RAD
-- KHD
-- Musterung
-- Stellungsbefehl Wehrmacht
-- Wehrmacht
-- - Desertéiert\*
-- - Verstoppt\*
-- Erkennungsmarke N°
-- Waffeneinheit
-- Militärischer Rang bei der Gefangennahme
-- Militärischer Dienst
-- Art der Gefangennahme
-- Datum der Gefangennahme
-- Ort der Gefangennahme
-- Land der Gefangennahme
-- Nummer der Kriegsgefangenenlager
-- Auf Brief an Stalin
-- Auf Liste vom
-- Abfahrtsliste vom
-- Datum der Repatriierung
-- Ankunft in Luxemburg
-- Todesdatum
-- Todesursache
-- Nummer des Kriegsgefangenenlagers, wo er starb
-- Nummer der Grablage
-- Nummer der Personalakte im Archiv in Moskau
-- Kontrollnummer vom Bearbeiter (Paul Dostert)
-- Gestorben
+- Expected Main Fields
+- Expected Sub Fields
+- Required Main Fields
 
-\*Optional fields
+The current project comes with a set of fields preconfigured, it is recommeded to check over the Constants.js file though to ensure that you get the expected behaviour. 
+
+If you are not getting the expected behaviour, make sure to check the console for any red or yellow messages which may help you in troubleshooting the issue, if this still doesn't help, [Report it as an Issue](#issue-reporting)
 
 ### Example
 
