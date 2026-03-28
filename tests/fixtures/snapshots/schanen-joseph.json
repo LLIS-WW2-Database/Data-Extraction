@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "2.0.0",
+  "person": {
+    "name": "SCHANEN Joseph"
+  },
+  "fields": {
+    "Vorname des Vaters": {
+      "value": "Jean"
+    },
+    "Geburtsdatum": {
+      "value": "12.04.1923 (état civil * 10/1923)"
+    },
+    "Wohnort": {
+      "value": "Contern / Fentange, rue de Bettembourg 44"
+    },
+    "Land": {
+      "value": "Luxemburg"
+    },
+    "Geburtsort": {
+      "value": "Contern"
+    },
+    "Geburtsland": {
+      "value": "Luxemburg"
+    },
+    "Religion": {
+      "value": "Katholisch"
+    },
+    "Zivile Ausbildung": {
+      "value": ""
+    },
+    "Militärische Ausbildung": {
+      "value": "keine"
+    },
+    "Fräiwëllegekompanie": {
+      "value": "nein"
+    },
+    "Beruf": {
+      "value": ""
+    },
+    "Stellungsbefehl RAD": {
+      "value": ""
+    },
+    "RAD": {
+      "value": "Lager in"
+    },
+    "KHD": {
+      "value": ""
+    },
+    "Musterung": {
+      "value": ""
+    },
+    "Stellungsbefehl Wehrmacht": {
+      "value": ""
+    },
+    "Wehrmacht": {
+      "value": ""
+    },
+    "Lescht Meldung": {
+      "value": "24.08.1944 aus Warschau (Warszawa, Polen)"
+    },
+    "Erkennungsmarke N°": {
+      "value": ""
+    },
+    "Waffeneinheit": {
+      "value": ""
+    },
+    "Militärischer Rang bei der Gefangennahme": {
+      "value": ""
+    },
+    "Militärischer Dienst": {
+      "value": ""
+    },
+    "Art der Gefangennahme": {
+      "value": ""
+    },
+    "Datum der Gefangennahme": {
+      "value": ""
+    },
+    "Ort der Gefangennahme": {
+      "value": ""
+    },
+    "Land der Gefangennahme": {
+      "value": ""
+    },
+    "Nummer der Kriegsgefangenenlager": {
+      "value": ""
+    },
+    "Auf Brief an Stalin": {
+      "value": ""
+    },
+    "Auf Liste vom": {
+      "value": ""
+    },
+    "Abfahrtsliste vom": {
+      "value": ""
+    },
+    "Datum der Repatriierung": {
+      "value": ""
+    },
+    "Ankunft in Luxemburg": {
+      "value": ""
+    },
+    "Todesdatum": {
+      "value": "zwischen Feb 1945 u. 31 Dez 1945"
+    },
+    "Todesursache": {
+      "value": "gefallen"
+    },
+    "Nummer des Kriegsgefangenenlagers, wo er starb": {
+      "value": ""
+    },
+    "Nummer der Grablage": {
+      "value": ""
+    },
+    "Nummer der Personalakte im Archiv in Moskau": {
+      "value": ""
+    },
+    "Kontrollnummer vom Bearbeiter (Paul Dostert)": {
+      "value": ""
+    },
+    "Gestorben": {
+      "value": "zwischen Feb 1945 u. 31 Dez 1945 un der Ostfront, II WW"
+    },
+    "Lescht „mise à jour“": {
+      "value": "03.12.2022"
+    }
+  },
+  "other": "[!! Zwischen Februrar und dem 31. Dezember 1945 an der Ostfront umgekommen. Durch Maschinengewehrfeuer Anfang Februar 1945 in der Nähe von Zinten in Ostpreussen (Kornewo, Oblast Kaliningrad, Russland) ums Leben. !!]\n\n„Mort pour la Patrie“ commune de Hesperange.\n\n(Livre d'Or des Victimes Luxembourgeois de la Guerre 1940-1945 p 111 N° 3271, 202 N° 35)\n\n[EXPO 02.-17.02. 1946 panneau N° 307/2]",
+  "parsing": {
+    "anomalies": [],
+    "missingRequiredFields": [],
+    "unknownFields": []
+  },
+  "metadata": {
+    "outputFileName": "schanen-joseph.json",
+    "sourceTextFile": "schanen-joseph.txt",
+    "sourceDocxFile": "schanen joseph 1923 -fiche personnelle-.docx"
+  }
+}

@@ -8,27 +8,64 @@
 
 const path = require('path');
 const fs = require('fs-extra');
-const chalk = require('chalk');
 
-/**
- * @description Loops over all files in the given folder and then returns an array of file paths
- * @param {string} inputFolderPath The path to the "inputs" folder
- *
- * @returns {Promise<string[]>} An array of file paths
- */
-function loopOverFiles(inputFolderPath) {
-  return new Promise((resolve, reject) => {
-    fs.readdir(inputFolderPath, (err, files) => {
-      if (err) {
-        console.log(chalk.red('Error reading folder:', err));
-        reject(err);
-        return;
-      }
-
-      const filePaths = files.map((file) => path.join(inputFolderPath, file));
-      resolve(filePaths);
-    });
-  });
+async function listFiles(inputFolderPath) {
+  const files = await fs.readdir(inputFolderPath);
+  return files.map((file) => path.join(inputFolderPath, file));
 }
 
-module.exports.loopOverFiles = loopOverFiles;
+async function loopOverFiles(inputFolderPath) {
+  return listFiles(inputFolderPath);
+}
+
+async function validateDocxInputs(inputFolderPath) {
+  const filePaths = await listFiles(inputFolderPath);
+  const validFiles = [];
+  const invalidFiles = [];
+  const fileStats = {};
+
+  for (const filePath of filePaths) {
+    const ext = path.extname(filePath).toLocaleLowerCase();
+    const stat = await fs.stat(filePath);
+
+    if (!stat.isFile()) {
+      invalidFiles.push({
+        filePath,
+        reason: 'not_a_file',
+      });
+      continue;
+    }
+
+    if (ext !== '.docx') {
+      invalidFiles.push({
+        filePath,
+        reason: 'unsupported_extension',
+      });
+      continue;
+    }
+
+    if (stat.size === 0) {
+      invalidFiles.push({
+        filePath,
+        reason: 'empty_file',
+      });
+      continue;
+    }
+
+    fileStats[filePath] = {
+      size: stat.size,
+    };
+    validFiles.push(filePath);
+  }
+
+  return {
+    fileStats,
+    invalidFiles,
+    validFiles,
+  };
+}
+
+module.exports = {
+  loopOverFiles,
+  validateDocxInputs,
+};

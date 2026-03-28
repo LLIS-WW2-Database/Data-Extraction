@@ -10,15 +10,18 @@ const path = require('path');
 const mammoth = require('mammoth');
 const cheerio = require('cheerio');
 const fs = require('fs');
-const { loopOverFiles } = require('./utils');
-const { BaseOutputDirectory } = require('./createOutputDir');
 const chalk = require('chalk');
+const { BaseOutputDirectory } = require('./createOutputDir');
+const { loopOverFiles } = require('./utils');
+const { derivePersonNameFromFilePath } = require('./normalization');
 
 class DocxToImageConverter extends BaseOutputDirectory {
-  constructor(parentFolder) {
-    super(parentFolder);
-    this.inputFolderPath = path.join(parentFolder, './Files/inputs');
-    this.outputFolderPath = path.join(parentFolder, './Files/outputs/images');
+  constructor(parentFolder, options = {}) {
+    super(parentFolder, options);
+    this.inputFolderPath =
+      options.inputFolderPath || path.join(parentFolder, './Files/inputs');
+    this.outputFolderPath =
+      options.imageOutputFolderPath || path.join(this.outputFolderPath, 'images');
   }
   /**
    * @description This will extract the name of the person associated with this document. (Given it is the first two words of any given document)
@@ -27,13 +30,7 @@ class DocxToImageConverter extends BaseOutputDirectory {
    * @returns {string} The name of the person associated with this document
    */
   getNameFromDocName(docxFilePath) {
-    const fileName = path.basename(docxFilePath);
-    const personName = fileName
-      .match(/^[^\d-]+/)[0]
-      .trim()
-      .replace(/\s+/g, '-');
-
-    return personName;
+    return derivePersonNameFromFilePath(docxFilePath);
   }
 
   /**
@@ -44,6 +41,13 @@ class DocxToImageConverter extends BaseOutputDirectory {
    * @returns {string[]} An array containing the file paths to the saved images
    */
   async extractImagesFromDocx(docxFilePath, docName) {
+    const result = {
+      count: 0,
+      failures: [],
+      files: [],
+      types: [],
+    };
+
     try {
       // Step 1: Convert docx to HTML using mammoth
       const { value } = await mammoth.convertToHtml({ path: docxFilePath });
@@ -74,16 +78,31 @@ class DocxToImageConverter extends BaseOutputDirectory {
           const imageName = `${docName}-${index + 1}.${imageExtension}`;
           const imagePath = path.join(folderPath, imageName);
 
-          // Save the image to the person's folder
-          fs.writeFileSync(imagePath, imageBuffer);
-          images.push(imagePath);
+          try {
+            fs.writeFileSync(imagePath, imageBuffer);
+            console.log(chalk.green('Image Conversion  -> Successful'));
+            images.push(imagePath);
+            result.files.push(imagePath);
+            result.types.push(imageExtension);
+          } catch (error) {
+            result.failures.push({
+              message: error.message,
+              path: imagePath,
+            });
+            console.log(chalk.red('Image Conversion -> Error:', error));
+          }
         }
       });
 
-      return images;
+      result.count = images.length;
+      return result;
     } catch (error) {
       console.log(chalk.red('Error occurred:', error));
-      return [];
+      result.failures.push({
+        message: error.message,
+        path: docxFilePath,
+      });
+      return result;
     }
   }
 

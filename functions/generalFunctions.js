@@ -11,145 +11,345 @@ const fs = require('fs-extra');
 const chalk = require('chalk');
 const readline = require('readline');
 
+const defaultConstants = require('../Constants');
 const DocxConverter = require('./docxToTxt');
-const TxtToJsonConverter = require('./txtToJson.js');
+const TxtToJsonConverter = require('./txtToJson');
 const DocxToImageConverter = require('./docxToImage');
 const { BaseOutputDirectory } = require('./createOutputDir');
-const info = chalk.keyword('yellow');
+const { Logger } = require('./logger');
+const {
+  addFileReport,
+  createRunReport,
+  finalizeRunReport,
+  writeRunReport,
+} = require('./reporting');
+const { mapWithConcurrency } = require('./concurrency');
+const {
+  hashFile,
+  loadManifest,
+  saveManifest,
+  shouldSkipFile,
+} = require('./manifest');
+const { derivePersonNameFromFilePath } = require('./normalization');
+const { validateDocxInputs } = require('./utils');
 
-const outputsFolderPath = path.join(__dirname, '../Files/outputs');
+function getInputsDirectory(parentFolder = path.join(__dirname, '../'), inputDir) {
+  return inputDir || path.join(parentFolder, 'Files', 'inputs');
+}
 
-function copyFilesToAllDirectory() {
-  const outputDir = path.join(__dirname, '../Files/outputs');
+function getOutputsDirectory(parentFolder = path.join(__dirname, '../'), outputDir) {
+  return outputDir || path.join(parentFolder, 'Files', 'outputs');
+}
+
+function getRunReportPath(parentFolder, outputDir, reportPath) {
+  return (
+    reportPath ||
+    path.join(getOutputsDirectory(parentFolder, outputDir), 'reports', 'run-report.json')
+  );
+}
+
+function getManifestPath(parentFolder, outputDir, manifestPath) {
+  return (
+    manifestPath ||
+    path.join(getOutputsDirectory(parentFolder, outputDir), 'reports', 'run-manifest.json')
+  );
+}
+
+async function copyFilesToAllDirectory(
+  parentFolder = path.join(__dirname, '../'),
+  outputDir = getOutputsDirectory(parentFolder),
+) {
   const txtDir = path.join(outputDir, 'txt');
   const jsonDir = path.join(outputDir, 'json');
   const imagesDir = path.join(outputDir, 'images');
   const allDir = path.join(outputDir, 'all');
 
-  if (!fs.existsSync(allDir)) {
-    fs.mkdirSync(allDir);
-  }
+  const txtFiles = await fs.readdir(txtDir);
+  await fs.ensureDir(allDir);
 
-  fs.readdir(txtDir, (err, txtFiles) => {
-    if (err) {
-      console.error('Error reading txt folder:', err);
-      return;
+  for (const txtFile of txtFiles) {
+    const personName = txtFile.split('.')[0];
+    const personDir = path.join(allDir, personName);
+    await fs.ensureDir(personDir);
+
+    const txtFilePath = path.join(txtDir, txtFile);
+    const destTxtFilePath = path.join(personDir, txtFile);
+    await fs.copy(txtFilePath, destTxtFilePath, { overwrite: true });
+
+    const jsonFile = `${personName}.json`;
+    const jsonFilePath = path.join(jsonDir, jsonFile);
+    const destJsonFilePath = path.join(personDir, jsonFile);
+    if (await fs.pathExists(jsonFilePath)) {
+      await fs.copy(jsonFilePath, destJsonFilePath, { overwrite: true });
     }
 
-    txtFiles.forEach((txtFile) => {
-      const personName = txtFile.split('.')[0];
-      const personDir = path.join(allDir, personName);
-      if (!fs.existsSync(personDir)) {
-        fs.mkdirSync(personDir);
-      }
+    const personImageDir = path.join(imagesDir, personName);
+    if (await fs.pathExists(personImageDir)) {
+      const destPersonImageDir = path.join(personDir, 'images');
+      await fs.ensureDir(destPersonImageDir);
+      await fs.copy(personImageDir, destPersonImageDir, { overwrite: true });
+    }
+  }
+}
 
-      const txtFilePath = path.join(txtDir, txtFile);
-      const destTxtFilePath = path.join(personDir, txtFile);
-      fs.copyFileSync(txtFilePath, destTxtFilePath);
+async function deleteOutputsFolder(
+  parentFolder = path.join(__dirname, '../'),
+  outputDir = getOutputsDirectory(parentFolder),
+) {
+  const outputsFolderPath = outputDir;
+  const outputsFolderExists = await fs.pathExists(outputsFolderPath);
 
-      const jsonFile = `${personName}.json`;
-      const jsonFilePath = path.join(jsonDir, jsonFile);
-      const destJsonFilePath = path.join(personDir, jsonFile);
-      fs.copyFileSync(jsonFilePath, destJsonFilePath);
+  if (outputsFolderExists) {
+    await fs.remove(outputsFolderPath);
+    console.log('Outputs folder and its contents have been deleted.');
+  } else {
+    console.log('Outputs folder does not exist.');
+  }
+}
 
-      const personImageDir = path.join(imagesDir, personName);
-      if (fs.existsSync(personImageDir)) {
-        const destPersonImageDir = path.join(personDir, 'images');
-        if (!fs.existsSync(destPersonImageDir)) {
-          fs.mkdirSync(destPersonImageDir);
-        }
-        fs.readdirSync(personImageDir).forEach((imageFile) => {
-          const imagePath = path.join(personImageDir, imageFile);
-          const destImagePath = path.join(destPersonImageDir, imageFile);
-          fs.copyFileSync(imagePath, destImagePath);
-        });
-      }
-    });
+async function writeReviewFile(parentFolder, personKey, fileReport) {
+  const reviewDir = path.join(
+    getOutputsDirectory(parentFolder, fileReport.outputDir),
+    'review',
+  );
+  const reviewPath = path.join(reviewDir, `${personKey}.review.json`);
+  await fs.ensureDir(reviewDir);
+  await fs.writeFile(reviewPath, JSON.stringify(fileReport, null, 2), 'utf8');
+}
 
-    console.log('Files copied to the "all" directory successfully.');
+async function processBatch(options = {}) {
+  const {
+    clean = false,
+    concurrency = 1,
+    constants = defaultConstants,
+    inputDir,
+    limit,
+    logLevel = 'info',
+    manifestPath,
+    outputDir,
+    parentFolder = path.join(__dirname, '../'),
+    reportPath,
+    resume = false,
+  } = options;
+
+  const resolvedInputDir = getInputsDirectory(parentFolder, inputDir);
+  const resolvedOutputDir = getOutputsDirectory(parentFolder, outputDir);
+  const resolvedReportPath = getRunReportPath(parentFolder, resolvedOutputDir, reportPath);
+  const resolvedManifestPath = getManifestPath(
+    parentFolder,
+    resolvedOutputDir,
+    manifestPath,
+  );
+  const logger = new Logger(logLevel);
+  const baseOutputDirectory = new BaseOutputDirectory(parentFolder, {
+    outputFolderPath: resolvedOutputDir,
   });
-}
 
-async function deleteOutputsFolder() {
-  try {
-    // Check if the outputs folder exists
-    const outputsFolderExists = await fs.pathExists(outputsFolderPath);
+  if (clean) {
+    await deleteOutputsFolder(parentFolder, resolvedOutputDir);
+  }
 
-    if (outputsFolderExists) {
-      // Delete the outputs folder and all its contents
-      await fs.remove(outputsFolderPath);
-      console.log('Outputs folder and its contents have been deleted.');
-    } else {
-      console.log('Outputs folder does not exist.');
+  await baseOutputDirectory.createFileStructure();
+
+  const validation = await validateDocxInputs(resolvedInputDir);
+  const docxFiles = typeof limit === 'number'
+    ? validation.validFiles.slice(0, limit)
+    : validation.validFiles;
+  const manifest = await loadManifest(resolvedManifestPath);
+
+  const runReport = createRunReport({
+    clean,
+    concurrency,
+    inputDir: resolvedInputDir,
+    limit: typeof limit === 'number' ? limit : null,
+    outputDir: resolvedOutputDir,
+    resume,
+  });
+  runReport.benchmarks.totalInputBytes = docxFiles.reduce(
+    (total, filePath) => total + (validation.fileStats[filePath]?.size || 0),
+    0,
+  );
+
+  for (const invalidFile of validation.invalidFiles) {
+    addFileReport(runReport, {
+      errors: [invalidFile.reason],
+      filePath: invalidFile.filePath,
+      image: {
+        failures: [],
+      },
+      missingRequiredFields: [],
+      reviewRequired: true,
+      status: 'failed',
+      unknownFields: [],
+    });
+  }
+
+  if (docxFiles.length === 0) {
+    finalizeRunReport(runReport);
+    writeRunReport(runReport, resolvedReportPath);
+    return runReport;
+  }
+
+  const converterOptions = {
+    inputFolderPath: resolvedInputDir,
+    outputFolderPath: resolvedOutputDir,
+    imageOutputFolderPath: path.join(resolvedOutputDir, 'images'),
+    jsonOutputFolderPath: path.join(resolvedOutputDir, 'json'),
+    txtInputFolderPath: path.join(resolvedOutputDir, 'txt'),
+    txtOutputFolderPath: path.join(resolvedOutputDir, 'txt'),
+  };
+  const docxConverter = new DocxConverter(parentFolder, converterOptions);
+  const txtToJsonConverter = new TxtToJsonConverter(parentFolder, constants, converterOptions);
+  const docxToImageConverter = new DocxToImageConverter(parentFolder, converterOptions);
+
+  const workItems = [];
+
+  for (const docxFilePath of docxFiles) {
+    const personKey = derivePersonNameFromFilePath(docxFilePath);
+    const fileHash = await hashFile(docxFilePath);
+    const manifestEntry = manifest.files[docxFilePath];
+    const canSkip = await shouldSkipFile(manifestEntry, fileHash);
+
+    if (canSkip) {
+      addFileReport(runReport, {
+        filePath: docxFilePath,
+        image: manifestEntry.image || {
+          failures: [],
+        },
+        outputs: manifestEntry.outputs || {},
+        personKey,
+        reviewRequired: false,
+        skippedBecause: resume ? 'resume_manifest' : 'unchanged_manifest',
+        status: 'skipped',
+      });
+      logger.info('Skipping unchanged file', {
+        file: path.basename(docxFilePath),
+      });
+      continue;
     }
-  } catch (err) {
-    console.error('Error deleting outputs folder:', err);
+
+    workItems.push({
+      docxFilePath,
+      fileHash,
+      personKey,
+      size: validation.fileStats[docxFilePath]?.size || 0,
+    });
   }
+
+  const processedReports = await mapWithConcurrency(workItems, concurrency, async (item) => {
+    const { docxFilePath, fileHash, personKey, size } = item;
+    const fileStartedAt = Date.now();
+    const fileReport = {
+      errors: [],
+      filePath: docxFilePath,
+      hash: fileHash,
+      image: {
+        failures: [],
+      },
+      missingRequiredFields: [],
+      outputs: {},
+      outputDir: resolvedOutputDir,
+      personKey,
+      reviewRequired: false,
+      size,
+      status: 'success',
+      unknownFields: [],
+    };
+
+    try {
+      logger.info('Processing file', { file: path.basename(docxFilePath) });
+
+      const txtResult = await docxConverter.convertDocToTxt(docxFilePath);
+      const jsonResult = await txtToJsonConverter.convertTxtToJson(
+        txtResult.outputFilePath,
+        {
+          sourceDocxFile: docxFilePath,
+        },
+      );
+      const imageResult = await docxToImageConverter.extractImagesFromDocx(
+        docxFilePath,
+        personKey,
+      );
+
+      fileReport.outputs = {
+        json: jsonResult.outputFilePath,
+        txt: txtResult.outputFilePath,
+      };
+      fileReport.image = imageResult;
+      fileReport.missingRequiredFields = jsonResult.jsonData.parsing.missingRequiredFields;
+      fileReport.unknownFields = jsonResult.jsonData.parsing.unknownFields;
+      fileReport.anomalies = jsonResult.jsonData.parsing.anomalies;
+      fileReport.reviewRequired =
+        fileReport.missingRequiredFields.length > 0 ||
+        fileReport.unknownFields.length > 0 ||
+        fileReport.anomalies.length > 0 ||
+        fileReport.image.failures.length > 0;
+      fileReport.durationMs = Date.now() - fileStartedAt;
+
+      if (fileReport.reviewRequired) {
+        await writeReviewFile(parentFolder, personKey, fileReport);
+      }
+    } catch (error) {
+      fileReport.status = 'failed';
+      fileReport.errors.push(error.message);
+      fileReport.reviewRequired = true;
+      logger.error('Failed to process file', {
+        error: error.message,
+        file: path.basename(docxFilePath),
+      });
+      await writeReviewFile(parentFolder, personKey, fileReport);
+    }
+
+    manifest.files[docxFilePath] = {
+      completedAt: new Date().toISOString(),
+      filePath: docxFilePath,
+      hash: fileHash,
+      image: fileReport.image,
+      outputs: fileReport.outputs,
+      personKey,
+      reviewRequired: fileReport.reviewRequired,
+      status: fileReport.status,
+    };
+
+    return fileReport;
+  });
+
+  for (const fileReport of processedReports) {
+    addFileReport(runReport, fileReport);
+  }
+
+  await copyFilesToAllDirectory(parentFolder, resolvedOutputDir);
+  finalizeRunReport(runReport);
+  writeRunReport(runReport, resolvedReportPath);
+  await saveManifest(resolvedManifestPath, manifest);
+
+  logger.info('Batch processing finished', {
+    failed: runReport.summary.failed,
+    processed: runReport.summary.processed,
+    reviewRequired: runReport.summary.reviewRequired,
+    skipped: runReport.summary.skipped,
+    succeeded: runReport.summary.succeeded,
+  });
+
+  return runReport;
 }
 
-async function start() {
-  // #region Functions within function
-  async function createFolders() {
-    await new BaseOutputDirectory(
-      path.join(__dirname, '../'),
-    ).createFileStructure();
-  }
+async function walkthrough(options = {}) {
+  const {
+    constants = defaultConstants,
+    parentFolder = path.join(__dirname, '../'),
+  } = options;
 
   async function verifyInputsAreThere() {
-    await createFolders();
-    const inputsFolderPath = path.join(__dirname, '../Files', 'inputs');
-
-    return new Promise((resolve, reject) => {
-      fs.readdir(inputsFolderPath, (err, files) => {
-        if (err) {
-          console.error('Error reading folder:', err);
-          reject(err);
-        } else {
-          const docxFiles = files.filter(
-            (file) => path.extname(file) === '.docx',
-          );
-          resolve(docxFiles.length > 0);
-        }
-      });
-    });
+    await new BaseOutputDirectory(parentFolder).createFileStructure();
+    const validation = await validateDocxInputs(path.join(parentFolder, 'Files', 'inputs'));
+    return validation.validFiles.length > 0;
   }
 
-  async function convertEverything() {
-    const mainPath = path.join(__dirname, '../');
-    const docxConverter = new DocxConverter(mainPath);
-    const txtToJsonConverter = new TxtToJsonConverter(mainPath);
-    const docxToImageConverter = new DocxToImageConverter(mainPath);
-
-    await createFolders();
-
-    // Wait 5 seconds to ensure creation of folder
-    // await wait(5 * 1000);
-
-    console.log(info('Running Docx to Txt Conversion...'));
-    await docxConverter.convertAllDocsToTxt();
-
-    console.log(info('Running Txt to Json Conversion...'));
-    await txtToJsonConverter.convertAllTxtToJson();
-
-    console.log(info('Running Docx to Image Conversion...'));
-    await docxToImageConverter.getAllImages();
-
-    console.log(info('Copying Files to All Directory...'));
-    await copyFilesToAllDirectory();
-  }
-  // #endregion
-
-  // #region Prepare the Readline functionality and backend stuff
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    terminal: false,
   });
-
-  // rl.on('close', () => {
-  //    process.exit(0);
-  // });
-  // #endregion
 
   const promptContinue = chalk.red(
     'This action will delete the current "outputs" folder. Do you wish to continue (Y/N)? ',
@@ -158,65 +358,59 @@ async function start() {
     'No DOCX files found in the Files/inputs folder.\nPlease add files, and then continue with y or cancel with n: ',
   );
 
-  const result = await verifyInputsAreThere();
-
-  // Wait 5 seconds before continuing
-  await wait(5 * 1000);
-  console.log(result);
-  if (!result) {
-    rl.setPrompt(refreshInputs);
-    rl.prompt();
-
-    rl.on('line', async (input) => {
-      if (input.toLocaleLowerCase() == 'n') {
-        console.log(chalk.red('Cancelling...'));
-        rl.close();
-        process.exit();
-        return;
-      } else if (input.toLocaleLowerCase() == 'y') {
-        console.log(chalk.red('Checking intputs folder...'));
-        const result2 = await verifyInputsAreThere();
-
-        // Wait 5 seconds before continuing
-        await wait(5 * 1000);
-
-        if (!result2) {
-          return rl.prompt();
-        } else {
-          await console.clear();
-          await rl.close();
-          start();
-        }
-      } else {
-        rl.prompt();
-      }
+  const askQuestion = (question) =>
+    new Promise((resolve) => {
+      rl.question(question, (answer) => {
+        resolve(answer.trim().toLocaleLowerCase());
+      });
     });
-  } else {
-    // Ask for user input
-    rl.setPrompt(promptContinue);
-    rl.prompt();
 
-    // Event listener for when the user enters a line of input
-    rl.on('line', async (input) => {
-      if (input.toLocaleLowerCase() == 'n') {
+  try {
+    let result = await verifyInputsAreThere();
+
+    while (!result) {
+      const input = await askQuestion(refreshInputs);
+
+      if (input === 'n') {
         console.log(chalk.red('Cancelling...'));
-        rl.close();
-        process.exit();
-      } else if (input.toLocaleLowerCase() == 'y') {
+        return null;
+      }
+
+      if (input === 'y') {
+        console.log(chalk.red('Checking inputs folder...'));
+        result = await verifyInputsAreThere();
+      }
+    }
+
+    console.clear();
+
+    let shouldPrompt = true;
+    while (shouldPrompt) {
+      const input = await askQuestion(promptContinue);
+
+      if (input === 'n') {
+        console.log(chalk.red('Cancelling...'));
+        shouldPrompt = false;
+        return null;
+      }
+
+      if (input === 'y') {
         console.log(chalk.red('Deleting the outputs folder...'));
-        await deleteOutputsFolder();
-        await console.clear();
+        console.clear();
         console.log('Starting conversion...');
-        await convertEverything();
+        const runReport = await processBatch({
+          clean: true,
+          constants,
+          parentFolder,
+        });
         console.log('Conversion Completed');
-        rl.close();
-        process.exit();
-      } else {
-        rl.prompt();
+        shouldPrompt = false;
+        return runReport;
       }
-    });
+    }
+  } finally {
+    rl.close();
   }
-  // #endregion
 }
 
 function wait(time) {
@@ -230,5 +424,7 @@ function wait(time) {
 module.exports = {
   copyFilesToAllDirectory,
   deleteOutputsFolder,
-  start,
+  processBatch,
+  walkthrough,
+  wait,
 };

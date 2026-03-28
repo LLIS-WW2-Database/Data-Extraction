@@ -1,1 +1,4 @@
 node_modules
+
+// Ignore input and output files
+Files

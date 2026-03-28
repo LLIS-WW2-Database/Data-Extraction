@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "2.0.0",
+  "person": {
+    "name": "JUNG Joseph"
+  },
+  "fields": {
+    "Vorname des Vaters": {
+      "value": "Nicolas"
+    },
+    "Geburtsdatum": {
+      "value": "06.04.1926 (état civil * 12/1926)"
+    },
+    "Wohnort": {
+      "value": "Contern"
+    },
+    "Land": {
+      "value": "Luxemburg"
+    },
+    "Geburtsort": {
+      "value": "Contern"
+    },
+    "Geburtsland": {
+      "value": "Luxemburg"
+    },
+    "Religion": {
+      "value": "Katholisch"
+    },
+    "Zivile Ausbildung": {
+      "value": "Volksschule"
+    },
+    "Militärische Ausbildung": {
+      "value": "keine"
+    },
+    "Fräiwëllegekompanie": {
+      "value": "nein"
+    },
+    "Beruf": {
+      "value": "Landarbeiter"
+    },
+    "Stellungsbefehl RAD": {
+      "value": "12.02.1944"
+    },
+    "RAD": {
+      "value": "Lager in"
+    },
+    "KHD": {
+      "value": ""
+    },
+    "Musterung": {
+      "value": ""
+    },
+    "Stellungsbefehl Wehrmacht": {
+      "value": ""
+    },
+    "Wehrmacht": {
+      "value": ""
+    },
+    "Erkennungsmarke N°": {
+      "value": ""
+    },
+    "Waffeneinheit": {
+      "value": ""
+    },
+    "Militärischer Rang bei der Gefangennahme": {
+      "value": ""
+    },
+    "Militärischer Dienst": {
+      "value": ""
+    },
+    "Art der Gefangennahme": {
+      "value": ""
+    },
+    "Datum der Gefangennahme": {
+      "value": ""
+    },
+    "Ort der Gefangennahme": {
+      "value": ""
+    },
+    "Land der Gefangennahme": {
+      "value": ""
+    },
+    "Nummer der Kriegsgefangenenlager": {
+      "value": ""
+    },
+    "Auf Brief an Stalin": {
+      "value": ""
+    },
+    "Auf Liste vom": {
+      "value": ""
+    },
+    "Abfahrtsliste vom": {
+      "value": ""
+    },
+    "Datum der Repatriierung": {
+      "value": ""
+    },
+    "Ankunft in Luxemburg": {
+      "value": ""
+    },
+    "Todesdatum": {
+      "value": ""
+    },
+    "Todesursache": {
+      "value": ""
+    },
+    "Nummer des Kriegsgefangenenlagers, wo er starb": {
+      "value": ""
+    },
+    "Nummer der Grablage": {
+      "value": ""
+    },
+    "Nummer der Personalakte im Archiv in Moskau": {
+      "value": ""
+    },
+    "Kontrollnummer vom Bearbeiter (Paul Dostert)": {
+      "value": ""
+    },
+    "Gestorben": {
+      "value": "12.05.2000 in Luxembourg, L (état civil + 564/2000)"
+    },
+    "Lescht „mise à jour“": {
+      "value": "17.01.2023"
+    }
+  },
+  "other": "[-Familienchronik der Gemeinde Contern - Dr Prosper Kayser 2011 / Säit 169]",
+  "parsing": {
+    "anomalies": [],
+    "missingRequiredFields": [],
+    "unknownFields": []
+  },
+  "metadata": {
+    "outputFileName": "jung-joseph.json",
+    "sourceTextFile": "jung-joseph.txt",
+    "sourceDocxFile": "jung joseph 1926 -fiche personnelle-.docx"
+  }
+}

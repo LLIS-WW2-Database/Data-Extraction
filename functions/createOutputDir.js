@@ -11,27 +11,28 @@ const fs = require('fs');
 const path = require('path');
 
 class BaseOutputDirectory {
-  constructor(parentFolderPath = __dirname) {
+  constructor(parentFolderPath = __dirname, options = {}) {
     this.parentFolderPath = parentFolderPath;
-    this.createFileStructure();
+    this.outputFolderPath =
+      options.outputFolderPath || path.join(this.parentFolderPath, 'Files', 'outputs');
   }
 
   createFolder(folderPath, folderName) {
     const fullFolderPath = path.join(folderPath, folderName);
-
-    fs.mkdir(fullFolderPath, { recursive: true }, (err) => {
-      if (err) {
-        console.log(chalk.red('Folder Creation -> Error:', err));
-      } else {
+    try {
+      if (!fs.existsSync(fullFolderPath)) {
+        fs.mkdirSync(fullFolderPath, { recursive: true });
         console.log(chalk.green('Folder Creation -> Successful'));
       }
-    });
+    } catch (err) {
+      console.log(chalk.red('Folder Creation -> Error:', err));
+    }
   }
 
   async createFileStructure() {
     const filesFolderPath = path.join(this.parentFolderPath, 'Files');
     const inputsFolderPath = path.join(filesFolderPath, 'inputs');
-    const outputsFolderPath = path.join(filesFolderPath, 'outputs');
+    const outputsFolderPath = this.outputFolderPath;
 
     this.createFolder(this.parentFolderPath, 'Files');
     this.createFolder(inputsFolderPath, '');
@@ -39,6 +40,8 @@ class BaseOutputDirectory {
     this.createFolder(outputsFolderPath, 'images');
     this.createFolder(outputsFolderPath, 'json');
     this.createFolder(outputsFolderPath, 'all');
+    this.createFolder(outputsFolderPath, 'reports');
+    this.createFolder(outputsFolderPath, 'review');
   }
 }
 
